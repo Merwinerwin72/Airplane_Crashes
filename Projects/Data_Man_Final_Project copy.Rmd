@@ -1,0 +1,521 @@
+---
+title: "The History of Airplane Crashes"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: 
+      version: 4
+      bootswatch: flatly
+      primary: "#DCA30B"
+      secondary: "#000000"
+    orientation: columns
+    vertical_layout: fill
+    source_code: embed
+---
+
+
+<style type="text/css">
+.chart-title {  /* chart_title  */
+    font-size: 20px;
+  }
+body{ /* Normal */
+      font_size: 18px
+        }
+</style>
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readr)
+library(tidyverse)
+library(conflicted)
+library(stringi)
+library(plotly)
+conflict_prefer("select", "dplyr")
+conflict_prefer("filter", "dplyr")
+crashes <- read_csv("crashes.csv")
+crashef <- read_csv("crashes.csv")
+```
+
+Background
+===
+
+Column {data-width=500}
+---
+
+```{r Data_Edits}
+crashes <- crashes[,-c(8, 9)]
+
+test <- str_remove_all(crashes$Date, c(" ")) 
+
+test <- str_remove_all(test, c(",")) 
+
+crashes$Month <- substr(test,1,nchar(test)-6)
+
+crashes$Year <- stri_extract_last_regex(crashes$Date, "\\d{4}")
+
+crashes$Location <- str_remove(crashes$Location, "Near")
+
+crashes$Location <- str_remove(crashes$Location, "Off")
+
+crashes$Mortality <- (crashes$`Total Fatalities`/crashes$`Total Aboard`)
+
+
+
+crashes <- crashes%>%
+  mutate(
+    Eras = case_when(
+    Year >= 1903 & Year < 1919 ~ "Pioneer",
+    Year >= 1919 & Year < 1946 ~ "Golden Age",
+    Year >= 1946 & Year < 1980 ~ "Post War",
+    Year >= 1980 & Year < 2001 ~ "Digital",
+    Year >= 2001 ~ "21st Century"),
+    Eras = factor(Eras, level = c("Pioneer", "Golden Age", "Post War", "Digital", "21st Century")))
+
+crash <- crashes %>% select(Year, Month, Date, Eras, everything())
+
+crash <- separate(crash, Location, into = c("City", "Country"), sep = ", ")
+
+crash$Country <- ifelse(crash$Country %in% state.name, "United States", crash$Country)
+
+crash$Month <- factor(crash$Month, 
+                   levels = c("January", "February", "March", "April", "May", "June",
+                              "July", "August", "September", "October", "November", "December"))
+```
+
+### Data Introduction 
+
+The data used in this project is about all recorded plane crashes in world history. From the First ever recorded plane crash in 1908 up until the end of March 2020. In this data set I have divided up all of the data into 5 eras(Pioneer, Golden Age, Postwar, Digital and 21st Century) and these are commonly known in the aviation community(except for the 21st Century because technically were still in the digital era, but i didn't want to have an "era" to have 40 years worth of data). During this slide show, you will be guided through these eras and be shown the crashes that have shaped the flying world as we know it, I will also be including major feats of these eras so you can understand how far we are in the development of airplanes.
+
+
+
+### Three Main Research Questions
+
+1. Which time period was it the most unsafe to fly?
+
+2. Has our airplane experience now safer than it was before? 
+
+3. What were some of the most important crashes in world History and what made them so important?
+
+
+Column {.tabset data-width=500}
+---
+
+### Variable Meaning
+
+Eras- The specific time period the crash occured in
+
+Operator- Who/What Company was in charge of flying the plane
+
+Route- Where was the airplane flying to and from
+
+AC Type- What kind of aircraft was the plane that crashed
+
+Total Aboard- How many passengers and crew members were on the plane when it crashed
+
+Total Fatalities- How many passengers and crew members died when the plane crashed
+
+Ground- If known, how far in the air was the plane compared to sea level when it crashed(Ex. When a plane flies into a mountain)
+
+Mortality- The total number of passenger and crew that passed divided by how many passenger and crew were on board
+
+
+
+
+### Airplane Crash Data
+```{r Table}
+crash <- crash[,-c(19)]
+
+crashel <- crash[,-c(5, 9, 13, 14, 16, 17, 18)]
+
+index <- sample(1:nrow(crashel), 100)
+result <- crashel[index,]
+
+DT::datatable(result)
+
+```
+
+
+### Crashes By Era
+
+```{r}
+p1 <- ggplot(crash, aes(x = Eras)) + 
+  geom_bar(fill="#DCA30B", alpha=.6, width=.4) + 
+  coord_flip() +
+  theme(text = element_text(size = 20))
+ggplotly(p1)
+
+```
+
+
+
+
+### Fatalities per Crash in Each Era
+
+```{r Fatal Boxplot}
+crash$Year <- as.integer(crash$Year)
+
+p4 <- ggplot(data = crash, mapping = aes(x = Year, y = `Total Fatalities`)) +
+    geom_point(alpha = 0.3, aes(color = Eras))
+ggplotly(p4)
+```
+
+
+
+Pioneer Era 
+===
+
+Column {.tabset data-width=1000}
+---
+
+### Pioneer Era Data (1903-1918) 
+
+**About This Era**
+
+1903 was the birth year of the present day Airplanes, many were attempted before this but the Wright Brother's were the first powered and controlled flight. They didnt start officially start recording crashes up until 1908, by this time the first powered and controlled flights in Europe and New Zealand were successful. The first reported airplane crash was in Fort Myer, Virginia in 1908.The plane was operated by Orville Wright and was showing off the plane with Lt. Thomas Selfridge on board as a passenger. During the flight the plane fell into a nose dive from 75 feet and crashed into the ground killing Lt. Thomas Selfridge. This was the first known death from flying in an airplane. This Era ends in 1918 at the end of World War 1 when people started to see the potential in airplanes in war and more people started to create new and improved ways of flying.
+
+```{r datatable}
+pio <- filter(crash, Eras == "Pioneer")
+
+DT::datatable(head(pio, 24))
+```
+
+
+### Era Specific Statistics
+
+
+```{r Pio Stats}
+pio$Year <- as.factor(pio$Year)
+p2 <- ggplot(pio, aes(x=Year, y=`Total Fatalities`, size = Mortality)) +
+    geom_point(color="#DCA30B") +
+    theme_bw() 
+ggplotly(p2)
+
+```
+
+### Pioneer Operator Statistics
+
+```{r PioOpstats1}
+pioplt <- ggplot(pio) +
+  geom_hline(
+    aes(yintercept = y), 
+    data.frame(y = c(0:2) * 12.5),
+    color = "lightgrey"
+  ) + 
+  geom_col(
+    aes(
+      x = reorder(str_wrap(Operator, 5), 
+                  `Total Fatalities`),
+      y = `Total Fatalities`,
+      fill = `Total Fatalities`
+    ),
+    position = "dodge2",
+    show.legend = TRUE,
+    alpha = .9
+  ) + 
+  coord_polar() 
+
+pioplt
+
+```
+
+
+
+Golden Age 
+===
+
+Column {.tabset data-width=1000}
+---
+
+### Golden Age Data (1919-1945)
+
+*About This Era*
+
+In the Golden Age, there were many significant events and developments that happened. Some of the most notable events and developments include: The end of World War I, which saw the widespread use of aircraft in warfare and led to rapid advancements in aviation technology. The establishment of the first commercial airlines, such as KLM and British Airways, which began offering regular passenger flights. The development of new aircraft designs, such as the Boeing 247 and Douglas DC-3, which were more reliable and comfortable than previous models. The expansion of air travel to long-distance routes, such as transatlantic flights, which made air travel more accessible to the general public. The advent of air mail service, which greatly improved communication and made it possible to send letters and packages quickly around the world. The start of World War II, which saw the widespread use of aircraft in warfare and led to further advancements in aviation technology, such as jet engines and advanced weapons systems.
+
+```{r GA}
+ga <- filter(crash, crash[,4] == "Golden Age")
+
+indexga <- sample(1:nrow(ga), 100)
+resultga <- ga[indexga,]
+
+DT::datatable(resultga)
+```
+
+### Crashes By Month
+
+
+```{r cbm}
+ggplot(data = ga, mapping = aes(x = Month, y = `Total Fatalities`)) +
+    geom_boxplot(alpha = 0) +
+    geom_jitter(alpha = 0.6, color = "#DCA30B") + 
+  theme(text = element_text(size = 8))
+
+
+```
+
+Postwar Era 
+===
+
+Column {.tabset data-width=1000}
+---
+
+### Postwar Era Data (1946-1979)
+
+*About this Era*
+
+In the Postwar Era, there were many significant events and developments. Some of the most notable events and developments include: The development of the first successful commercial jet airliner, the de Havilland Comet, which entered service in 1952. The launch of the first satellite, Sputnik 1, by the Soviet Union in 1957, which paved the way for the development of satellite-based navigation systems. The development of supersonic aircraft, such as the Concorde, which entered service in 1976 and allowed for transatlantic travel at speeds of over twice the speed of sound.  The growth of the global airline industry, as more and more people began to travel by air for both business and leisure. The introduction of new safety regulations and technologies, such as the black box flight recorder and the use of radar for air traffic control, which greatly improved the safety of air travel.
+
+```{r pwe}
+pw <- filter(crash, crash[,4] == "Post War")
+
+indexpw <- sample(1:nrow(pw), 100)
+resultpw <- pw[indexpw,]
+
+DT::datatable(resultpw)
+```
+
+
+### Crashes in this Era
+
+```{r pwmap}
+
+
+ggplot(pw, aes(x = Mortality, y = `Total Aboard`, color = `Total Fatalities`)) +
+  geom_point() + 
+  theme(text = element_text(size = 15))
+
+```
+
+### Crash Data By Month
+
+```{r pwmonth}
+p6 <- ggplot(pw, aes(x = Month)) + geom_bar(fill="#DCA30B", width=.6) + coord_flip() +
+  theme(text = element_text(size = 8))
+ggplotly(p6)
+
+pwplt <- ggplot(pw) +
+  geom_col(aes(`Total Fatalities`, Month), fill = "lightblue", width = 0.6) + theme(text = element_text(size = 8))
+ggplotly(pwplt)
+```
+
+
+
+
+
+
+### Important Crashes (Marshall Football)
+
+*Summary*
+
+While on approach, the aircraft crashed one mile short of Runway 11 at Tri-State Airport in rain and fog. Thirty-six players and 5 coaches on the Marshall University football team were among those killed. Improper procedures executed by the crew. Descent below Minimum Descent Altitude during a nonprecision approach under adverse operating conditions, without visual contact with the runway environment. The reason for this descent was not able to be determined, although the two most likely explanations are ( a ) improper use of cockpit instrumentation data, or (b) an altimetry system error.
+
+---
+
+```{r PCm}
+
+Marshall <- filter(crash, crash[,3] == "November 14, 1970")
+
+DT::datatable(head(Marshall,1))
+```
+
+### Important Crashes (2 Plane Crash)
+
+*Summary*
+
+The TWA aircraft flying from Los Angeles to Kansas City and the United Aircraft flying from Los Angeles to Chicago collided over the Grand Canyon. Both planes were traveling about 320 mph. Both aircraft were flying in uncontrolled airspace. All fifty-eight on the DC-7 and seventy on the Constellation killed. The pilots did not see each other in time to avoid the collision. It is not possible to determine why the pilots did not see each other, but the evidence suggests that it resulted from any one or a combination of the following factors: 1) Intervening clouds reducing time for visual separation 2) Visual limitations due to cockpit visibility 3) Preoccupation with normal cockpit duties. This is the accident that led to the adoption of the Air Route Traffic Centers that track planes across the country and the formation of the FAA.
+
+---
+
+```{r PC2}
+Double_Plane_Crash <- filter(crash, crash[,3] == "June 30, 1956")
+
+DT::datatable(head(Double_Plane_Crash, 1))
+```
+
+
+
+Digital Era 
+===
+
+Column {.tabset data-width=1000}
+---
+
+### Digital Era Data (1980-2000)
+
+*About this Era*
+
+In the Digital Era we saw the development of more advanced and efficient commercial jet airliners, such as the Boeing 767 and Airbus A320, which greatly increased the capacity and range of air travel. The growth of low-cost carriers, such as Southwest Airlines and Ryanair, which made air travel more affordable and accessible to the general public. The expansion of global airline networks, as more and more airlines began offering flights to destinations around the world. The development of satellite-based navigation systems, such as the Global Positioning System (GPS), which greatly improved the safety and efficiency of air travel. The emergence of new technologies, such as the use of composite materials in aircraft construction and the development of fly-by-wire control systems, which greatly improved the performance and safety of aircraft.
+
+
+
+```{r de}
+de <- filter(crash, crash[,4] == "Digital")
+
+indexde <- sample(1:nrow(de), 100)
+resultde <- de[indexde,]
+
+DT::datatable(resultde)
+```
+
+
+### On Board Crash Data
+
+```{r CD}
+p5 <- ggplot(data = de, aes(x = Year, y = `Total Aboard`)) +
+    geom_line() +
+    facet_wrap(facets = vars(Month))
+
+ggplotly(p5)
+
+```
+
+
+
+### Important Crashes ()
+
+*Summary*
+
+Known as the worst single plane disaster in aviation history. The aircraft suffered an aft pressure bulkhead failure at 23,900 ft. The aircraft had severe control difficulties with loss of all controls and eventually after 40 minutes, collided with a mountain. Improper repair of the bulkhead while being supervised by Boeing engineers after a tail strike in 1978. Kyu Sakamoto, 43, famous for his Japanese song "Sukiyaki" was killed in the accident.
+
+
+```{r ICJ}
+Japan <- filter(crash, crash[,3] == "August 12, 1985")
+
+DT::datatable(head(Japan,1))
+
+```
+
+### Important Crashes (The Unknown Cause)
+
+*Summary*
+
+While on a flight from New York to Paris, France, the aircraft exploded at FL 130, broke up and crashed into the Atlantic Ocean off Long Island, N.Y. The NTSB determined that the probable cause of the accident was an explosion of the center wing fuel tank resulting from ignition of the flammable fuel/air mixture in the tank. The source of ignition energy for the explosion could not be determined with certainty but, of the sources evaluated by the investigation, the most likely was a short circuit outside of the center wing tank that allowed excessive voltage to enter it through electrical wiring associated with the fuel quantity indication system. To say that numerous government agencies acted strangely and suspiciously would be an understatement. A great deal of evidence was either suppressed or ignored. Rumors persist that the plane was brought down by a missile, either by the Navy conducting exercises in the area or by terrorists.
+
+```{r wh}
+wh <- filter(crash, crash[,6] == " East Moriches")
+
+DT::datatable(head(wh,1))
+
+```
+
+
+
+21st Century 
+===
+
+Column {.tabset data-width=1000}
+---
+
+### 21st Century Data
+
+*About this Era*
+
+Since the start of the 21st century we have seen, the continued growth of the global airline industry, with more and more people traveling by air for both business and leisure. The development of more advanced and efficient commercial jet airliners, such as the Boeing 787 Dreamliner and Airbus A350, which have improved fuel efficiency and passenger comfort. The emergence of new technologies, such as electric and hybrid-electric propulsion systems and the use of 3D printing in aircraft manufacturing, which are expected to greatly improve the sustainability and efficiency of air travel. The rise of space tourism, with companies such as Virgin Galactic and Blue Origin offering suborbital flights to paying customers.
+
+
+```{r 21c}
+twrst <- filter(crash, crash[,4] == "21st Century")
+
+indextwrst <- sample(1:nrow(twrst), 100)
+resulttwrst <- twrst[indextwrst,]
+
+DT::datatable(resulttwrst)
+```
+
+### Total Fatalities in Years
+
+```{r tf}
+p6 <- ggplot(data = twrst, aes(x = Year, y = `Total Fatalities`)) +
+    geom_line() +
+    facet_wrap(facets = vars(Month))
+
+ggplotly(p6)
+
+```
+
+
+
+### Important Crashes (September 11, 2001)
+
+*Summary*
+
+Four passenger airplanes were hijacked by members of the terrorist group al-Qaeda. Two of the planes, American Airlines Flight 11 and United Airlines Flight 175, were crashed into the North and South towers of the World Trade Center in New York City. The impact of the planes and the subsequent fires caused the collapse of the towers, killing thousands of people. A third plane, American Airlines Flight 77, was crashed into the Pentagon in Washington, D.C., causing significant damage and loss of life. The fourth plane, United Airlines Flight 93, was initially flown towards Washington, D.C., but the passengers and crew attempted to retake control of the plane, and it crashed into a field in Pennsylvania.
+
+```{r ne}
+ne <- filter(crash, crash[,3] == "September 11, 2001")
+
+DT::datatable(head(ne,4))
+
+```
+
+### Important Crashes (Malaysia Flight 370)
+
+*Summary*
+Radar contact was lost with the aircraft 2 hours into the flight at 0240. All indications are that the aircraft changed direction from its flight path and crashed in a remote part of the Indian Ocean southwest of Perth Australia. It is assumed all 227 passengers and crew of 12 perished.
+
+```{r malaysia}
+malaysia <- filter(crash, crash[,3] == "March 08, 2014")
+
+DT::datatable(head(malaysia,1))
+
+```
+
+
+
+Conclusion
+===
+
+Column (data-width=600)
+---
+
+### Answering My Three Research Questions
+
+1. Which time period was it the most unsafe to fly?
+
+The most unsafe time period to fly would be the Postwar Era. There wasnt that many regulations in place yet. With flying becoming a more popular way of travel, and without as many regulations as there should be, problems would arise. Towards the end of this Era there were becoming more solutions to problems, as it was the opposite in the beginning of this era, where there were more problems than solutions
+
+2. Is our airplane travel now safer than it was before? 
+
+Yes, airplane travel has become safer. With rising technology, we have very few airplane crashes a year compared to the peak of crashes per year like in the Postwar Era. According to Airlines.Org, in 1948 there was an average of 8400 flights a day while having 77 crashes this year. In 2019, there was around 45,000 according to the FAA while only having 7 crashes. 
+
+3. What were some of the most important crashes in world History and what made them so important?
+
+We looked over some of the most important crashes for some of the eras. In each of those crashes, new rules were put in place, or there was an improvements on the rules or regulations that were too broad. 
+
+Column (data-width=200)
+---
+
+### How I Plan to Use What I've Learned in the Future
+
+In the future I plan on working in the Data Analytics industry, this project can be used in resumes to show what I have made in the past to show off my skills that i have learned in this class. This project will help me in the f
+
+
+
+### Sources
+The data set I used was found on [Kaggle](https://www.kaggle.com/datasets/imdevskp/air-passengers-and-departures-data-from-19702018). I used websites like [datacarpentry](https://datacarpentry.org/R-ecology-lesson/04-visualization-ggplot2.html) and [rgraphgallery](https://r-graph-gallery.com/267-reorder-a-variable-in-ggplot2.html) to create some of the graphs I made in my project. Then, for my conclusion of the questions I had, I used sources like [airplanes.org](https://airlines.org/wp-content/uploads/2014/08/1949.pdf) and the [FAA](https://www.faa.gov/air_traffic/by_the_numbers) to backup my research. 
+
+
+
+About the Author 
+===
+
+Column (data-width=600)
+---
+
+### About Me
+My names Michael Erwin and I am currently an undergraduate at the University of Dayton, where I plan to graduate in 2025. I plan on getting my degree in either Supply Chain Management or in Sports management while also getting a minor in Data Analytics. 
+
+Here is where you can reach me on [LinkedIn](https://www.linkedin.com/in/michael-erwin-7a9682231/)
+
+
+Column (data-width=400)
+---
+
+### My Photo
+
+```{r, fig.align='center'}
+knitr::include_graphics("Nicephoto.jpg")
+```
+
+
+
